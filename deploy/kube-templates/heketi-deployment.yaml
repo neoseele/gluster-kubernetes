@@ -15,6 +15,7 @@ spec:
   - name: heketi
     port: 8080
     targetPort: 8080
+  type: LoadBalancer
 ---
 kind: Deployment
 apiVersion: extensions/v1beta1

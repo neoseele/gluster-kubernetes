@@ -47,23 +47,6 @@ USER_KEY='12qwaszx'
 ./gk_deploy -g --admin-key $ADMIN_KEY --user-key $USER_KEY --no-object
 ```
 
-### Test cluster
-```sh
-kubectl port-forward heketi-xxx :8080
-```
-```sh
-Forwarding from 127.0.0.1:64592 -> 8080
-Forwarding from [::1]:64592 -> 8080
-Handling connection for 64592
-```
-```sh
-heketi-cli -s http://localhost:64592 --user admin --secret $ADMIN_KEY cluster list
-```
-```sh
-Clusters:
-Id:5e9ba288e59a184a5ff760dbd0410b7c
-```
-
 ### Create admin secret
 ```sh
 kubectl create secret generic heketi-admin-secret \
@@ -74,7 +57,7 @@ kubectl create secret generic heketi-admin-secret \
 ### Create storage class
 
 ```sh
-HEKETI=$(kubectl describe service heketi | grep IP: | awk '{print $2}')
+HEKETI=$(kubectl describe service heketi | grep Ingress | awk '{print $2}')
 ```
 (use the heketi service IP for resturl)
 
@@ -86,11 +69,9 @@ metadata:
   name: gluster-heketi
 provisioner: kubernetes.io/glusterfs
 parameters:
-  endpoint: "heketi-storage-endpoints"
-  resturl: "http://${HEKETI}:8080"
+  resturl: "http://${HEKETI}"
   restuser: "admin"
-  secretNamespace: "default"
-  secretName: "heketi-admin-secret"
+  restuserkey: ""
 " | kubectl apply -f -
 ```
 
