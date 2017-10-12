@@ -41,40 +41,15 @@ done
 (https://github.com/gluster/gluster-kubernetes.git)
 
 ```sh
-ADMIN_KEY='12qwaszx'
+ADMIN_KEY='12qwaszx!@'
+USER_KEY='12qwaszx'
 
-./gk_deploy -g --admin-key $ADMIN_KEY --no-object
-```
-
-### Privatize Heketi service
-```sh
-kubectl delete service heketi
-```
-```sh
-echo "
----
-kind: Service
-apiVersion: v1
-metadata:
-  name: heketi
-  labels:
-    glusterfs: heketi-service
-    heketi: service
-  annotations:
-    description: Exposes Heketi Service
-spec:
-  selector:
-    glusterfs: heketi-pod
-  ports:
-  - name: heketi
-    port: 8080
-    targetPort: 8080
-" | kubectl apply -f -
+./gk_deploy -g --admin-key $ADMIN_KEY --user-key $USER_KEY --no-object
 ```
 
 ### Test cluster
 ```sh
-kubectl port-forward heketi-2660258935-5q5j6 :8080
+kubectl port-forward heketi-xxx :8080
 ```
 ```sh
 Forwarding from 127.0.0.1:64592 -> 8080
@@ -97,9 +72,12 @@ kubectl create secret generic heketi-admin-secret \
 ```
 
 ### Create storage class
+
 ```sh
 HEKETI=$(kubectl describe service heketi | grep IP: | awk '{print $2}')
 ```
+(use the heketi service IP for resturl)
+
 ```sh
 echo "
 apiVersion: storage.k8s.io/v1beta1

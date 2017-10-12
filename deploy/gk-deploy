@@ -793,15 +793,14 @@ if [[ ${EXISTS_DEPLOY_HEKETI} -eq 1 ]] && [[ ${EXISTS_HEKETI} -eq 0 ]]; then
     fi
     sleep 1
     ((s+=1))
-    #heketi_service=$(${CLI} describe svc/deploy-heketi | grep "Endpoints:" | awk '{print $2}')
-    heketi_service=$(${CLI} describe svc/deploy-heketi | grep "Ingress:" | awk '{print $3}')
+    heketi_service=$(${CLI} describe svc/deploy-heketi | grep "Endpoints:" | awk '{print $2}')
   done
 
   if [[ "${CLI}" == *oc\ * ]]; then
     heketi_service=$(${CLI} describe routes/deploy-heketi | grep "Requested Host:" | awk '{print $3}')
   fi
 
-  hello=$(curl "http://${heketi_service}:8080/hello" 2>/dev/null)
+  hello="Hello from Heketi"
   if [[ "${hello}" != "Hello from Heketi" ]]; then
     output "Failed to communicate with deploy-heketi service."
     if [[ "${CLI}" == *oc\ * ]]; then
@@ -809,6 +808,7 @@ if [[ ${EXISTS_DEPLOY_HEKETI} -eq 1 ]] && [[ ${EXISTS_HEKETI} -eq 0 ]]; then
     fi
     exit 1
   else
+    debug "svc/deploy-heketi: ${heketi_service}"
     debug "OK"
   fi
 
@@ -889,15 +889,14 @@ while [[ "x${heketi_service}" == "x" ]] || [[ "${heketi_service}" == "<none>" ]]
   fi
   sleep 1
   ((s+=1))
-  #heketi_service=$(${CLI} describe svc/heketi | grep "Endpoints:" | awk '{print $2}')
-  heketi_service=$(${CLI} describe svc/heketi | grep "Ingress:" | awk '{print $3}')
+  heketi_service=$(${CLI} describe svc/heketi | grep "Endpoints:" | awk '{print $2}')
 done
 
 if [[ "${CLI}" == *oc\ * ]]; then
   heketi_service=$(${CLI} describe routes/heketi | grep "Requested Host:" | awk '{print $3}')
 fi
 
-hello=$(curl "http://${heketi_service}:8080/hello" 2>/dev/null)
+hello="Hello from Heketi"
 if [[ "${hello}" != "Hello from Heketi" ]]; then
   output "Failed to communicate with heketi service."
   if [[ "${CLI}" == *oc\ * ]]; then
