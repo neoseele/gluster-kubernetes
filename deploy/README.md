@@ -24,30 +24,41 @@ gcloud compute disks create --size 100GB --zone us-central1-b gluster-data-2
 gcloud compute disks create --size 100GB --zone us-central1-b gluster-data-3
 ```
 
-### modprobe
+### attach-disk/modprobe
 
 ```sh
-for node in `kubectl get nodes | egrep '^gke' | awk '{print $1}'`;
+i=1
+for node in `kubectl get nodes -o jsonpath='{.items[*].metadata.name}'`;
 do
-  echo "> ${node}";
+  echo "* ${node}";
   gcloud compute ssh $node --zone us-central1-b -- sudo modprobe dm_thin_pool;
   gcloud compute ssh $node --zone us-central1-b -- sudo modprobe dm_snapshot;
   gcloud compute ssh $node --zone us-central1-b -- sudo modprobe dm_mirror;
+  gcloud compute instances attach-disk $node --disk gluster-data-${i} --zone us-central1-b;
+  ((i+=1))
 done
 ```
 
-### Deploy gluster
+### Recreate topology.json
 
-(https://github.com/gluster/gluster-kubernetes.git)
+```sh
+cd deploy
+```
+
+```sh
+ruby build_topology.rb <( gcloud compute instances list | grep kube-test | tr -s ' ') > topology.json
+```
+
+### Deploy gluster
 
 ```sh
 ADMIN_KEY='12qwaszx!@'
 USER_KEY='12qwaszx'
 
-./gk_deploy -g --admin-key $ADMIN_KEY --user-key $USER_KEY --no-object
+./gk-deploy -g --admin-key $ADMIN_KEY --user-key $USER_KEY --no-object
 ```
 
-### Create admin secret
+### Create admin secret (optional)
 ```sh
 kubectl create secret generic heketi-admin-secret \
   --from-literal=key=$ADMIN_KEY \
@@ -57,7 +68,7 @@ kubectl create secret generic heketi-admin-secret \
 ### Create storage class
 
 ```sh
-HEKETI=$(kubectl describe service heketi | grep Ingress | awk '{print $2}')
+HEKETI="$(kubectl describe service heketi | grep Ingress: | awk '{print $3}'):8080"
 ```
 (use the heketi service IP for resturl)
 
@@ -71,9 +82,33 @@ provisioner: kubernetes.io/glusterfs
 parameters:
   resturl: "http://${HEKETI}"
   restuser: "admin"
-  restuserkey: ""
+  restuserkey: "${ADMIN_KEY}"
+  # secretNamespace: "default"
+  # secretName: "heketi-admin-secret"
 " | kubectl apply -f -
 ```
+secretNamespace: "default"
+secretName: "heketi-admin-secret"
+
+### Clean up
+
+Delete load balancer type services
+```sh
+kubectl get service
+```
+
+Delete the cluster
+```sh
+gcloud container clusters delete kube-test --zone us-central1-b
+```
+
+Delete the PDs
+```sh
+gcloud compute disks delete --zone us-central1-b gluster-data-1
+gcloud compute disks delete --zone us-central1-b gluster-data-2
+gcloud compute disks delete --zone us-central1-b gluster-data-3
+
+
 
 [1] https://github.com/gluster/gluster-kubernetes/blob/master/docs/setup-guide.md
 [2] http://blog.lwolf.org/post/how-i-deployed-glusterfs-cluster-to-kubernetes/
