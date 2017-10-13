@@ -73,7 +73,8 @@ HEKETI="$(kubectl describe service heketi | grep Ingress: | awk '{print $3}'):80
 (use the heketi service IP for resturl)
 
 ```sh
-echo "
+cat << EOF | kubectl apply -f -
+---
 apiVersion: storage.k8s.io/v1beta1
 kind: StorageClass
 metadata:
@@ -85,10 +86,8 @@ parameters:
   restuserkey: "${ADMIN_KEY}"
   # secretNamespace: "default"
   # secretName: "heketi-admin-secret"
-" | kubectl apply -f -
+EOF
 ```
-secretNamespace: "default"
-secretName: "heketi-admin-secret"
 
 ### Clean up
 
