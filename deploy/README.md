@@ -1,3 +1,5 @@
+## Deploy Gluster
+
 ### Create the GKE cluster
 
 _must have minimal 3 nodes to run a gluster cluster_
@@ -24,7 +26,7 @@ gcloud compute disks create --size 100GB --zone us-central1-b gluster-data-2
 gcloud compute disks create --size 100GB --zone us-central1-b gluster-data-3
 ```
 
-### attach-disk/modprobe
+### Attach disk / modprobe
 
 ```sh
 i=1
@@ -46,10 +48,11 @@ cd deploy
 ```
 
 ```sh
-ruby build_topology.rb <( gcloud compute instances list | grep kube-test | tr -s ' ') > topology.json
+ruby build_topology.rb <( gcloud compute instances list | grep kube-test | tr -s ' ' ) > topology.json
 ```
+* _Internal IP used in topology.json_
 
-### Deploy gluster
+### Deploy
 
 ```sh
 ADMIN_KEY='12qwaszx!@'
@@ -83,31 +86,75 @@ provisioner: kubernetes.io/glusterfs
 parameters:
   resturl: "http://${HEKETI}"
   restuser: "admin"
-  restuserkey: "${ADMIN_KEY}"
-  # secretNamespace: "default"
-  # secretName: "heketi-admin-secret"
+  # restuserkey: "${ADMIN_KEY}"
+  secretNamespace: "default"
+  secretName: "heketi-admin-secret"
 EOF
 ```
 
-### Clean up
+### Setup Heketi Cli
 
-Delete load balancer type services
+```sh
+export HEKETI_CLI_SERVER=http://$HEKETI
+```
+
+```sh
+heketi-cli --user admin --secret $ADMIN_KEY volume list
+```
+
+
+## Increase Cluster Size
+
+### Add node
+
+```sh
+gcloud container clusters resize kube-test --size 4 --zone us-central1-b
+```
+
+### Create disk
+
+```sh
+gcloud compute disks create --size 100GB --zone us-central1-b gluster-data-4
+```
+
+### Attach disk / modprobe
+
+```sh
+node=<NEW_NODE>
+gcloud compute ssh $node --zone us-central1-b -- sudo modprobe dm_thin_pool;
+gcloud compute ssh $node --zone us-central1-b -- sudo modprobe dm_snapshot;
+gcloud compute ssh $node --zone us-central1-b -- sudo modprobe dm_mirror;
+gcloud compute instances attach-disk $node --disk gluster-data-4 --zone us-central1-b;
+```
+
+### Recreate topology.json
+
+```sh
+ruby build_topology.rb <( gcloud compute instances list | grep kube-test | tr -s ' ' ) > topology.json
+```
+
+### Reload topology.json
+
+```sh
+heketi-cli --user admin --secret $ADMIN_KEY topology load --json=topology.json
+```
+
+## Clean Up
+
+* Delete load balancer type services
 ```sh
 kubectl get service
 ```
 
-Delete the cluster
+* Delete the cluster
 ```sh
 gcloud container clusters delete kube-test --zone us-central1-b
 ```
 
-Delete the PDs
+* Delete the PDs
 ```sh
 gcloud compute disks delete --zone us-central1-b gluster-data-1
 gcloud compute disks delete --zone us-central1-b gluster-data-2
 gcloud compute disks delete --zone us-central1-b gluster-data-3
-
-
-
-[1] https://github.com/gluster/gluster-kubernetes/blob/master/docs/setup-guide.md
-[2] http://blog.lwolf.org/post/how-i-deployed-glusterfs-cluster-to-kubernetes/
+gcloud compute disks delete --zone us-central1-b gluster-data-4
+```

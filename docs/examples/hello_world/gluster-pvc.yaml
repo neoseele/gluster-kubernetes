@@ -6,7 +6,7 @@ metadata:
    volume.beta.kubernetes.io/storage-class: gluster-heketi
 spec:
  accessModes:
-  - ReadWriteOnce
+  - ReadWriteMany
  resources:
    requests:
      storage: 5Gi
