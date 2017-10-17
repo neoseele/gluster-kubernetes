@@ -12,21 +12,11 @@ gcloud beta container clusters create kube-test \
 --image-type=UBUNTU \
 --node-labels=storagenode=glusterfs \
 --tags=ssh \
+--local-ssd-count=1 \
 --scopes cloud-platform,storage-rw,logging-write,monitoring-write,service-control,service-management
 ```
 
-### Create disks
-
-- create 3 persistent disks
-- add them to the nodes (one each)
-
-```sh
-gcloud compute disks create --size 100GB --zone us-central1-b gluster-data-1
-gcloud compute disks create --size 100GB --zone us-central1-b gluster-data-2
-gcloud compute disks create --size 100GB --zone us-central1-b gluster-data-3
-```
-
-### Attach disk / modprobe
+### Modprobe / Cleanup SSD
 
 ```sh
 i=1
@@ -34,7 +24,7 @@ for node in `kubectl get nodes -o jsonpath='{.items[*].metadata.name}'`;
 do
   echo "* ${node}";
   gcloud compute ssh $node --zone us-central1-b -- 'sudo sh -c "modprobe dm_thin_pool; modprobe dm_snapshot; modprobe dm_mirror"'
-  gcloud compute instances attach-disk $node --disk gluster-data-${i} --zone us-central1-b;
+  gcloud compute ssh $node --zone us-central1-b -- 'sudo sh -c "umount /dev/sdb && dd if=/dev/zero of=/dev/sdb bs=512 count=100"'
   ((i+=1))
 done
 ```
@@ -55,7 +45,6 @@ ruby build_topology.rb <( gcloud compute instances list | grep kube-test | tr -s
 ```sh
 ADMIN_KEY='12qwaszx34erdfcv'
 USER_KEY='12qwaszx'
-
 ./gk-deploy -g --admin-key $ADMIN_KEY --user-key $USER_KEY --no-object
 ```
 
@@ -70,6 +59,7 @@ kubectl create secret generic heketi-admin-secret \
 
 ```sh
 HEKETI="$(kubectl describe service heketi | grep Ingress: | awk '{print $3}'):8080"
+echo $HEKETI
 ```
 (use the heketi service IP for resturl)
 
@@ -100,43 +90,6 @@ export HEKETI_CLI_SERVER=http://$HEKETI
 heketi-cli --user admin --secret $ADMIN_KEY volume list
 ```
 
-
-## Increase Cluster Size
-
-### Add node
-
-```sh
-gcloud container clusters resize kube-test --size 4 --zone us-central1-b
-```
-
-### Create disk
-
-```sh
-gcloud compute disks create --size 100GB --zone us-central1-b gluster-data-4
-```
-
-### Attach disk / modprobe
-
-```sh
-node=<NEW_NODE>
-gcloud compute ssh $node --zone us-central1-b -- sudo modprobe dm_thin_pool;
-gcloud compute ssh $node --zone us-central1-b -- sudo modprobe dm_snapshot;
-gcloud compute ssh $node --zone us-central1-b -- sudo modprobe dm_mirror;
-gcloud compute instances attach-disk $node --disk gluster-data-4 --zone us-central1-b;
-```
-
-### Recreate topology.json
-
-```sh
-ruby build_topology.rb <( gcloud compute instances list | grep kube-test | tr -s ' ' ) > topology.json
-```
-
-### Reload topology.json
-
-```sh
-heketi-cli --user admin --secret $ADMIN_KEY topology load --json=topology.json
-```
-
 ## Clean Up
 
 * Delete load balancer type services
@@ -147,12 +100,4 @@ kubectl get service
 * Delete the cluster
 ```sh
 gcloud container clusters delete kube-test --zone us-central1-b
-```
-
-* Delete the PDs
-```sh
-gcloud compute disks delete --zone us-central1-b gluster-data-1
-gcloud compute disks delete --zone us-central1-b gluster-data-2
-gcloud compute disks delete --zone us-central1-b gluster-data-3
-gcloud compute disks delete --zone us-central1-b gluster-data-4
 ```
