@@ -20,7 +20,7 @@ spec:
         storagenode: glusterfs
       hostNetwork: true
       containers:
-      - image: gluster/gluster-centos:latest
+      - image: gcr.io/nmiu-play/gluster-centos-ext4
         imagePullPolicy: IfNotPresent
         name: glusterfs
         env:
