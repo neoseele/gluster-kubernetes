@@ -793,13 +793,8 @@ if [[ ${EXISTS_DEPLOY_HEKETI} -eq 1 ]] && [[ ${EXISTS_HEKETI} -eq 0 ]]; then
     fi
     sleep 1
     ((s+=1))
-    heketi_service=$(${CLI} describe svc/deploy-heketi | grep "Ingress:" | awk '{print $3}')
+    heketi_service=$(${CLI} describe svc/deploy-heketi | grep "Endpoints:" | awk '{print $2}')
   done
-
-  ## deploy-heketi NLB listens on 8080
-  heketi_service="${heketi_service}:8080"
-  ## wait for NLB to be activated
-  sleep 10
 
   if [[ "${CLI}" == *oc\ * ]]; then
     heketi_service=$(${CLI} describe routes/deploy-heketi | grep "Requested Host:" | awk '{print $3}')
@@ -813,7 +808,6 @@ if [[ ${EXISTS_DEPLOY_HEKETI} -eq 1 ]] && [[ ${EXISTS_HEKETI} -eq 0 ]]; then
     fi
     exit 1
   else
-    debug "svc/deploy-heketi: ${heketi_service}"
     debug "OK"
   fi
 
@@ -894,17 +888,12 @@ while [[ "x${heketi_service}" == "x" ]] || [[ "${heketi_service}" == "<none>" ]]
   fi
   sleep 1
   ((s+=1))
-  heketi_service=$(${CLI} describe svc/heketi | grep "Ingress:" | awk '{print $3}')
+  heketi_service=$(${CLI} describe svc/heketi | grep "Endpoints:" | awk '{print $2}')
 done
 
 if [[ "${CLI}" == *oc\ * ]]; then
   heketi_service=$(${CLI} describe routes/heketi | grep "Requested Host:" | awk '{print $3}')
 fi
-
-## heketi NLB listens on 8080
-heketi_service="${heketi_service}:8080"
-## wait for NLB to be activated
-sleep 10
 
 hello=$(curl "http://${heketi_service}/hello" 2>/dev/null)
 if [[ "${hello}" != "Hello from Heketi" ]]; then
